@@ -3,6 +3,8 @@
 // HDG Sync
   // Need to use on/off events for heading in order to not capture the current hdg
 // Turn hdg mode off when nav mode pressed
+// Fix up vspeed display
+// fix up speed set circular get
 
 #include "TM1637_6D.h"
 #include "TM1637.h"
@@ -16,7 +18,7 @@
 #define TOGGLE_INTERVAL 50
 
 #define NumberOfInputs 24
-#define NumberOfOutputs 8
+#define NumberOfOutputs 16 // If this changes, need to update the doShiftOut() method
 
 #define altSegDIO 49
 #define altSegCLK 48
@@ -49,17 +51,28 @@ PohoRotary *rotaryVs;
 TM1637_6D altDisplay(altSegCLK,altSegDIO);
 TM1637    hdgDisplay(hdgSegCLK,hdgSegDIO);
 TM1637    flcDisplay(flcSegCLK,flcSegDIO);
-TM1637     vsDisplay(vsSegCLK, vsSegDIO);
+TM1637_6D vsDisplay(vsSegCLK, vsSegDIO);
 
 enum outputIndex  {
-  out_alt  = 0,
-  out_hdg  = 1,
-  out_flc  = 2,
-  out_vs   = 3,
-  out_appr = 4,
-  out_nav  = 5,
-  out_ap   = 6,
-  out_yd   = 7
+  out_nav  = 0,
+  out_appr = 1,
+  out_yd   = 2,
+  out_ap   = 3,
+  out_flc  = 4,
+  out_vs   = 5,
+  out_hdg  = 6,
+  out_alt  = 7,
+
+  out_vnav = 15,
+
+
+  out_unused0 = 9,
+  out_unused1 = 10,
+  out_unused2 = 11,
+  out_unused3 = 12,
+  out_unused4 = 13,
+  out_unused5 = 14,
+  out_unused6 = 8
 };
 
 enum inputIndex{
@@ -75,8 +88,8 @@ enum inputIndex{
   in_flcRotatePush = 14,
   in_flcRotate1    = 12,
   in_flcRotate2    = 13,
-  in_vs            = 10, // wired up different
-  in_vsRotatePush  = 11, // wired up different
+  in_vs            = 11,
+  in_vsRotatePush  = 10,
   in_vsRotate1     = 8,
   in_vsRotate2     = 9,
   in_na0,
@@ -159,8 +172,8 @@ void setup() {
   flcDisplay.begin();
   flcDisplay.setBrightness(2);
 
-  vsDisplay.begin();
-  vsDisplay.setBrightness(2);
+  vsDisplay.init();
+  vsDisplay.set(BRIGHT_TYPICAL);
 
   for(int i =0; i < NumberOfOutputs; i++){
     outputValues[i] = 0;
@@ -444,16 +457,34 @@ void rotateVs() {
 
 void displayVs(){
   String num = "";
-  if(vsBug < 10)
-    num = "000" + String(vsBug);
-  else if(vsBug < 100)
-    num = "00" + String(vsBug);
-  else if(vsBug < 1000)
-    num = "0" + String(vsBug);
-  else
-    num = String(vsBug);
 
-  vsDisplay.display(num);
+  if(vsBug <= -10000)
+    num = ("" +String(vsBug));
+  else if(vsBug <= -1000)
+    num = (" " +String(vsBug));
+  else if(vsBug < 0)
+    num = ("  " +String(vsBug));
+  else if(vsBug == 0)
+    num = ("   00" +String(vsBug));
+  else if(vsBug < 1000)
+    num = ("   "+String(vsBug));
+  else if(vsBug < 10000)
+    num = ("  "+String(vsBug));
+  else if(vsBug < 100000)
+    num = (" "+String(vsBug));
+  else
+    num = (String(vsBug));
+
+  int8_t ListDisp[6];
+  for(int i=0; i < 6; i++){
+    if(num.charAt(i) == ' ')
+      ListDisp[5-i] = 10; //blank
+    else
+      ListDisp[5-i] = num.charAt(i) - '0';
+  }
+  int8_t ListDispPoint[6] = {POINT_OFF,POINT_OFF,POINT_OFF,POINT_OFF,POINT_OFF,POINT_OFF};
+
+  vsDisplay.display(ListDisp, ListDispPoint);
 }
 
 void sendVs(){
@@ -464,16 +495,16 @@ void sendVs(){
 char tmp = 0;
 
 void doShiftOut(){
-  char output = 0;
+  int output = 0;
   for(int i=0; i < NumberOfOutputs; i++){
-    // Serial.print(outputValues[i]);
     if(outputValues[i]){
       output |= (1 << i);
     }
-    // output |= (outputValues[out_yd] << i);
   }
   digitalWrite(ShiftOutLatchPin, LOW);
+  shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output >> 8);
   shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output);
+  // shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output);
   digitalWrite(ShiftOutLatchPin, HIGH);
 }
 
@@ -601,6 +632,15 @@ void checkForAltSync(){
 
 void loop() {
   delay(1);
+
+  for(int i =0; i < NumberOfOutputs; i++){
+    outputValues[i] = 0;
+  }
+  if(hdgBug < NumberOfOutputs){
+    outputValues[hdgBug] = 1;
+  }else{
+    outputValues[0] = 1;
+  }
 
   doShiftOut();
   bool inputDirty = doShiftIn();
