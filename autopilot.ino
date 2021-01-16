@@ -504,7 +504,6 @@ void doShiftOut(){
   digitalWrite(ShiftOutLatchPin, LOW);
   shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output >> 8);
   shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output);
-  // shiftOut(ShiftOutDataPin, ShiftOutClockPin, MSBFIRST, output);
   digitalWrite(ShiftOutLatchPin, HIGH);
 }
 
@@ -633,14 +632,15 @@ void checkForAltSync(){
 void loop() {
   delay(1);
 
-  for(int i =0; i < NumberOfOutputs; i++){
-    outputValues[i] = 0;
-  }
-  if(hdgBug < NumberOfOutputs){
-    outputValues[hdgBug] = 1;
-  }else{
-    outputValues[0] = 1;
-  }
+  //This chunk sets the output light to the value of hdgBug.
+  // for(int i =0; i < NumberOfOutputs; i++){
+  //   outputValues[i] = 0;
+  // }
+  // if(hdgBug < NumberOfOutputs){
+  //   outputValues[hdgBug] = 1;
+  // }else{
+  //   outputValues[0] = 1;
+  // }
 
   doShiftOut();
   bool inputDirty = doShiftIn();
