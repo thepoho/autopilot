@@ -124,6 +124,7 @@ int  flcBug = 1;
 int  vsBug  = 0;
 
 unsigned long altBugLastSent = 0;
+unsigned long flcBugLastSent = 0;
 
 bool altSyncing = false;
 bool hdgSyncing = false;
@@ -417,9 +418,9 @@ void rotateFlc() {
 void displayFlc(){
   String num = "";
   if(flcBug < 10)
-    num = " 00" + String(flcBug);
+    num = "   " + String(flcBug);
   else if(flcBug < 100)
-    num = " 0" + String(flcBug);
+    num = "  " + String(flcBug);
   else
     num = " " + String(flcBug);
 
@@ -427,6 +428,7 @@ void displayFlc(){
 }
 
 void sendFlc(){
+  flcBugLastSent = millis();
   String str = "SET;AP_SPD_VAR_SET;"+String(flcBug);
   SendString(MsgId_Sim, str);
 }
@@ -667,7 +669,7 @@ void loop() {
       checkForReqAll();
     }
 
-    if(outputValues[out_vs] || outputValues[out_flc]){
+    if(outputValues[out_vs]){
       if(millis() > lastRequestSome + REQUEST_SOME_INTERVAL){
         requestSome();
       }
@@ -783,8 +785,10 @@ void readFromSerial(){
             hdgBug = atoi(strings[2]);
             displayHdg();
           }else if(strcmp("AUTOPILOT AIRSPEED HOLD VAR", strings[1]) == 0){
-            flcBug = atoi(strings[2]);
-            displayFlc();
+             if(flcBugLastSent + 100 < millis()){
+                flcBug = atoi(strings[2]);
+              displayFlc();
+            }
           }else if(strcmp("AUTOPILOT VERTICAL HOLD VAR", strings[1]) == 0){
             vsBug = atoi(strings[2]);
             displayVs();
